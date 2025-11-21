@@ -1,9 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final LocalAuthentication auth = LocalAuthentication();
+
+  Future<void> _authenticate() async {
+    bool authenticated = false;
+    try {
+      authenticated = await auth.authenticate(
+        localizedReason: 'Autentícate para acceder',
+        biometricOnly: true,
+      );
+    } catch (e) {
+      print(e);
+    }
+    if (authenticated) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,23 +124,34 @@ class LoginScreen extends StatelessWidget {
                           obscureText: true,
                         ),
                         const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const HomeScreen()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE4000F), // Pokemon red
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            side: const BorderSide(color: Colors.black, width: 4),
-                            shadowColor: Colors.black,
-                            elevation: 6,
-                          ),
-                          child: const Text('Login', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              onPressed: _authenticate,
+                              icon: const Icon(Icons.fingerprint, color: Color(0xFFE4000F), size: 40),
+                              tooltip: 'Autenticación biométrica',
+                            ),
+                            const SizedBox(width: 20),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE4000F), // Pokemon red
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                side: const BorderSide(color: Colors.black, width: 4),
+                                shadowColor: Colors.black,
+                                elevation: 6,
+                              ),
+                              child: const Text('Login', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
