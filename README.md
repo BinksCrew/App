@@ -27,6 +27,8 @@ Una aplicación Flutter para [descripción breve, ej: mostrar un video de bienve
    flutter doctor
    ```
 
+**Nota**: Para releases rápidos, usa el script `release.ps1` incluido en el proyecto (solo Windows).
+
 ## Comandos de Desarrollo
 
 ### Análisis de Código
@@ -65,6 +67,12 @@ Una aplicación Flutter para [descripción breve, ej: mostrar un video de bienve
   ```bash
   flutter build apk --release --split-per-abi
   ```
+
+- **Comando único para release y copiar APK al root** (Windows PowerShell):
+  ```powershell
+  .\release.ps1
+  ```
+  Este script construye el APK de release y lo copia como `blinkscrew.apk` en la raíz del proyecto.
 
 ### Construir para iOS (en macOS)
 - Construir para iOS:
