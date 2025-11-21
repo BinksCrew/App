@@ -72,7 +72,7 @@ Una aplicación Flutter para [descripción breve, ej: mostrar un video de bienve
   ```powershell
   .\release.ps1
   ```
-  Este script construye el APK de release y lo copia como `blinkscrew.apk` en la raíz del proyecto.
+  Este script construye el APK de release y lo copia como `binkscrew.apk` en la raíz del proyecto.
 
 ### Construir para iOS (en macOS)
 - Construir para iOS:

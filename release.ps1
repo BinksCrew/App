@@ -6,9 +6,9 @@ flutter build apk --release
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Copying APK to project root..."
-    Copy-Item "build/app/outputs/flutter-apk/app-release.apk" "blinkscrew.apk"
+    Copy-Item "build/app/outputs/flutter-apk/app-release.apk" "binkscrew.apk"
     if ($?) {
-        Write-Host "APK copied successfully: blinkscrew.apk"
+        Write-Host "APK copied successfully: binkscrew.apk"
     } else {
         Write-Host "Failed to copy APK!"
         exit 1

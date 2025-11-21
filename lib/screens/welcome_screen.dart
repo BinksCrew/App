@@ -56,16 +56,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           width: MediaQuery.of(context).size.width * 0.8, // Más pequeño: 80% del ancho
           height: MediaQuery.of(context).size.height * 0.6, // 60% del alto
           color: Colors.white,
-          child: _controller.value.isInitialized
-              ? FittedBox(
-                  fit: BoxFit.contain, // Ajusta sin cortar
-                  child: SizedBox(
-                    width: _controller.value.size.width,
-                    height: _controller.value.size.height,
-                    child: VideoPlayer(_controller),
-                  ),
-                )
-              : const CircularProgressIndicator(),
+          child: FittedBox(
+              fit: BoxFit.contain, // Ajusta sin cortar
+              child: SizedBox(
+                width: _controller.value.size.width,
+                height: _controller.value.size.height,
+                child: VideoPlayer(_controller),
+              ),
+            ),
         ),
       ),
     );

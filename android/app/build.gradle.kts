@@ -45,7 +45,7 @@ android {
 
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach { 
-            outputFileName = "blinkscrew.apk"
+            outputFileName = "binkscrew.apk"
         }
     }
 }
