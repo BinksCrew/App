@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
@@ -20,11 +19,8 @@ class RegisterScreen extends StatelessWidget {
             ),
           ),
           // Blur filter
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
-            child: Container(
-              color: Colors.black.withOpacity(0.1), // Slight overlay
-            ),
+          Container(
+            color: Colors.black.withAlpha(26), // 0.1 * 255 ≈ 26
           ),
           // Content
           Center(

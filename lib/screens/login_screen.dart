@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
@@ -20,12 +19,9 @@ class LoginScreen extends StatelessWidget {
               ),
             ),
           ),
-          // Blur filter
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
-            child: Container(
-              color: Colors.black.withOpacity(0.1), // Slight overlay
-            ),
+          // Overlay
+          Container(
+            color: Colors.black.withAlpha(77), // 0.3 * 255 ≈ 77
           ),
           // Content
           Center(
