@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'register_screen.dart';
 import 'main_screen.dart';
 
@@ -12,6 +16,60 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final LocalAuthentication auth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    if (kReleaseMode) {
+      _checkForUpdate();
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+
+      final response = await http.get(Uri.parse('https://raw.githubusercontent.com/BinksCrew/App/main/version.json'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final remoteVersion = data['version'];
+
+        if (_isVersionOutdated(currentVersion, remoteVersion)) {
+          _showUpdateDialog();
+        }
+      }
+    } catch (e) {
+      // Ignore errors in debug or handle silently
+    }
+  }
+
+  bool _isVersionOutdated(String current, String remote) {
+    // Simple string comparison, assuming semver
+    return remote != current;
+  }
+
+  void _showUpdateDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Actualización Disponible'),
+          content: const Text('Hay una nueva versión de la aplicación disponible. Por favor, actualiza para continuar.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // For now, just close the dialog. In a real app, open store or something
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _authenticate() async {
     bool authenticated = false;
