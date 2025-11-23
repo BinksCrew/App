@@ -1,7 +1,5 @@
 # App - Binkscrew
 
-Una aplicación Flutter para [descripción breve, ej: mostrar un video de bienvenida y permitir login].
-
 ## Requisitos Previos
 
 - Flutter SDK instalado (versión 3.10.0 o superior)
