@@ -29,13 +29,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+          transitionDuration: Duration.zero,
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
+            return child;
           },
-          transitionDuration: const Duration(milliseconds: 500),
         ),
       );
     }
