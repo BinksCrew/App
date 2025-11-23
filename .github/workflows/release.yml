@@ -64,8 +64,17 @@ jobs:
           "keyAlias=upload" | Out-File -FilePath $p -Append -Encoding ASCII
           "storeFile=upload-keystore.jks" | Out-File -FilePath $p -Append -Encoding ASCII
           
-          # Remove any whitespace/newlines from the secret before decoding
-          $base64 = $env:ANDROID_KEYSTORE_BASE64 -replace '\s',''
+          # Aggressively clean the base64 string: remove anything that isn't a valid base64 character
+          $base64 = $env:ANDROID_KEYSTORE_BASE64 -replace '[^a-zA-Z0-9+/=]',''
+          
+          # Debug: Print length (safe to show in logs)
+          Write-Host "Base64 string length: $($base64.Length)"
+          
+          if ($base64.Length -eq 0) {
+            Write-Error "ANDROID_KEYSTORE_BASE64 secret is empty or invalid."
+            exit 1
+          }
+
           $bytes = [Convert]::FromBase64String($base64)
           [IO.File]::WriteAllBytes("android/app/upload-keystore.jks", $bytes)
 
