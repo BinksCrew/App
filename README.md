@@ -1,4 +1,4 @@
-# App
+# App - Binkscrew
 
 Una aplicación Flutter para [descripción breve, ej: mostrar un video de bienvenida y permitir login].
 
