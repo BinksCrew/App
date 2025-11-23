@@ -64,7 +64,9 @@ jobs:
           "keyAlias=upload" | Out-File -FilePath $p -Append -Encoding ASCII
           "storeFile=upload-keystore.jks" | Out-File -FilePath $p -Append -Encoding ASCII
           
-          $bytes = [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64)
+          # Remove any whitespace/newlines from the secret before decoding
+          $base64 = $env:ANDROID_KEYSTORE_BASE64 -replace '\s',''
+          $bytes = [Convert]::FromBase64String($base64)
           [IO.File]::WriteAllBytes("android/app/upload-keystore.jks", $bytes)
 
       - name: Run Release Script
