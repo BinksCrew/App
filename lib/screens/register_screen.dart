@@ -1,15 +1,77 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+import '../services/api_service.dart';
+import 'main_screen.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _cedulaController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _apiService = ApiService();
+  bool _isLoading = false;
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _apiService.register(
+        cedula: _cedulaController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+        fullName: _fullNameController.text.isNotEmpty ? _fullNameController.text : null,
+        username: _usernameController.text.isNotEmpty ? _usernameController.text : null,
+      );
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('Crear Cuenta', style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        backgroundColor: Colors.transparent,
+      ),
       body: Stack(
         children: [
-          // Background image
+          // Background
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -18,132 +80,106 @@ class RegisterScreen extends StatelessWidget {
               ),
             ),
           ),
-          // Blur filter
-          Container(
-            color: Colors.black.withAlpha(26), // 0.1 * 255 ≈ 26
+          // Blur and Overlay
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: Colors.black.withOpacity(0.6),
+            ),
           ),
+          
           // Content
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo
-                  Image.asset('assets/logo.png', height: 100, errorBuilder: (context, error, stackTrace) => const Icon(Icons.image, size: 100)),
-                  const SizedBox(height: 20),
-                  // Hero Title
-                  const Text(
-                    'Join the Adventure!',
-                    style: TextStyle(
-                      fontSize: 35,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      shadows: [Shadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 8))],
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  // Description
-                  const Text(
-                    'Create your account to start exploring',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white70,
-                      height: 1.8,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  // Form
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.black, width: 4),
-                      boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(0, 6), blurRadius: 0)],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Name',
-                            prefixIcon: const Icon(Icons.person, color: Color(0xFF3B4CCA)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Colors.black, width: 2),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Color(0xFF3B4CCA), width: 3),
-                            ),
-                          ),
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Text(
+                        'Registro',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF1A1A1A),
                         ),
-                        const SizedBox(height: 15),
-                        TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: const Icon(Icons.email, color: Color(0xFF3B4CCA)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Colors.black, width: 2),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Color(0xFF3B4CCA), width: 3),
-                            ),
-                          ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      TextFormField(
+                        controller: _cedulaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Cédula *',
+                          prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        const SizedBox(height: 15),
-                        TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF3B4CCA)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Colors.black, width: 2),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: const BorderSide(color: Color(0xFF3B4CCA), width: 3),
-                            ),
-                          ),
-                          obscureText: true,
+                        validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email *',
+                          prefixIcon: Icon(Icons.email_outlined),
                         ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3B4CCA), // Pokemon blue
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                            side: const BorderSide(color: Colors.black, width: 4),
-                            shadowColor: Colors.black,
-                            elevation: 6,
-                          ),
-                          child: const Text('Register', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: const InputDecoration(
+                          labelText: 'Contraseña *',
+                          prefixIcon: Icon(Icons.lock_outline),
                         ),
-                      ],
-                    ),
+                        obscureText: true,
+                        validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _fullNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre Completo',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre de Usuario',
+                          prefixIcon: Icon(Icons.account_circle_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _register,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Text('REGISTRARSE'),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Already have an account? Login',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

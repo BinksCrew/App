@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,268 +12,266 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final TextEditingController _usernameController = TextEditingController(text: "AshKetchum123");
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _idController = TextEditingController();
+  final _apiService = ApiService();
+  final _formKey = GlobalKey<FormState>();
+  
+  // Controllers
+  final _fullNameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController(); // Read only usually
+  final _cedulaController = TextEditingController(); // Read only usually
 
-  String? _imagePath;
-  final ImagePicker _picker = ImagePicker();
+  File? _imageFile;
+  String? _currentImageUrl;
+  String? _userId;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadUserData();
   }
 
-  Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _usernameController.text = prefs.getString('username') ?? "AshKetchum123";
-      _passwordController.text = prefs.getString('password') ?? "";
-      _phoneController.text = prefs.getString('phone') ?? "";
-      _idController.text = prefs.getString('id') ?? "";
-      _imagePath = prefs.getString('imagePath');
-    });
-  }
-
-  Future<void> _saveProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('password', _passwordController.text);
-    await prefs.setString('phone', _phoneController.text);
-    await prefs.setString('id', _idController.text);
-    if (_imagePath != null) {
-      await prefs.setString('imagePath', _imagePath!);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Perfil guardado exitosamente!'),
-          backgroundColor: Color(0xFFE4000F),
-        ),
-      );
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await _apiService.getUserData();
+      if (userData != null) {
+        setState(() {
+          _userId = userData['id'];
+          _fullNameController.text = userData['fullName'] ?? '';
+          _usernameController.text = userData['username'] ?? '';
+          _phoneController.text = userData['phone'] ?? '';
+          _emailController.text = userData['email'] ?? '';
+          _cedulaController.text = userData['cedula'] ?? '';
+          _currentImageUrl = userData['photo_url']; // Assuming API returns photo_url
+          _isLoading = false;
+        });
+      } else {
+        // Handle case where no user data is found (should redirect to login)
+        _logout();
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar perfil: $e')),
+        );
+      }
     }
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
       setState(() {
-        _imagePath = image.path;
+        _imageFile = File(pickedFile.path);
       });
     }
   }
 
-  void _shareProfile() {
-    final String text = 'Mira mi perfil de Entrenador Pokémon!\n\n'
-        'Usuario: ${_usernameController.text}\n'
-        'Teléfono: ${_phoneController.text}\n'
-        'Descarga la app aquí: https://github.com/BinksCrew/App';
-    Share.share(text);
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final Map<String, String> fields = {};
+      if (_fullNameController.text.isNotEmpty) fields['fullName'] = _fullNameController.text;
+      if (_usernameController.text.isNotEmpty) fields['username'] = _usernameController.text;
+      if (_phoneController.text.isNotEmpty) fields['phone'] = _phoneController.text;
+      
+      // Note: Email and Cedula are usually not editable or require special handling
+      
+      if (_userId != null) {
+        await _apiService.updateUser(_userId!, fields, _imageFile);
+        
+        setState(() {
+          _isEditing = false;
+          _isSaving = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Perfil actualizado correctamente')),
+          );
+          _loadUserData(); // Reload to get fresh data (e.g. new image URL)
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _logout() async {
+    await _apiService.logout();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background
-          Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/anime.webp'),
-                fit: BoxFit.cover,
-              ),
+      appBar: AppBar(
+        title: const Text('Mi Perfil'),
+        actions: [
+          if (!_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                setState(() {
+                  _isEditing = true;
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _isEditing = false;
+                  _imageFile = null;
+                  _loadUserData(); // Reset changes
+                });
+              },
             ),
-          ),
-          // Overlay
-          Container(
-            color: Colors.black.withOpacity(0.6),
-          ),
-          // Content
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  // Profile Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.black, width: 4),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black,
-                          offset: Offset(0, 6),
-                          blurRadius: 0,
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.black, width: 4),
-                              ),
-                              child: CircleAvatar(
-                                radius: 60,
-                                backgroundColor: Colors.grey[300],
-                                backgroundImage: _imagePath != null
-                                    ? FileImage(File(_imagePath!)) as ImageProvider
-                                    : const AssetImage('assets/defaultpfp.webp'),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: _pickImage,
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE4000F),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.black, width: 2),
-                                  ),
-                                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        Text(
-                          _usernameController.text,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const Text(
-                          'Entrenador Pokémon',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  // Form Fields
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.black, width: 4),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black,
-                          offset: Offset(0, 6),
-                          blurRadius: 0,
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Información Personal',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFE4000F),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildTextField(
-                          controller: _usernameController,
-                          label: 'Username',
-                          icon: Icons.person,
-                          readOnly: true,
-                        ),
-                        const SizedBox(height: 15),
-                        _buildTextField(
-                          controller: _passwordController,
-                          label: 'Contraseña',
-                          icon: Icons.lock,
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 15),
-                        _buildTextField(
-                          controller: _phoneController,
-                          label: 'Teléfono',
-                          icon: Icons.phone,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 15),
-                        _buildTextField(
-                          controller: _idController,
-                          label: 'Cédula / ID',
-                          icon: Icons.badge,
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 25),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE4000F),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              side: const BorderSide(color: Colors.black, width: 3),
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'GUARDAR CAMBIOS',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _shareProfile,
-                            icon: const Icon(Icons.share),
-                            label: const Text(
-                              'COMPARTIR PERFIL',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              side: const BorderSide(color: Colors.black, width: 3),
-                              elevation: 0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 100), // Space for bottom navbar
-                ],
-              ),
-            ),
-          ),
         ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: _isEditing ? _pickImage : null,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: _imageFile != null
+                          ? FileImage(_imageFile!)
+                          : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                              ? NetworkImage(_currentImageUrl!) as ImageProvider
+                              : null),
+                      child: (_imageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
+                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                          : null,
+                    ),
+                    if (_isEditing)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF6200EE),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // Read-only fields
+              _buildTextField(
+                controller: _emailController,
+                label: 'Email',
+                icon: Icons.email_outlined,
+                enabled: false,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _cedulaController,
+                label: 'Cédula',
+                icon: Icons.badge_outlined,
+                enabled: false,
+              ),
+              const SizedBox(height: 16),
+
+              // Editable fields
+              _buildTextField(
+                controller: _fullNameController,
+                label: 'Nombre Completo',
+                icon: Icons.person_outline,
+                enabled: _isEditing,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _usernameController,
+                label: 'Nombre de Usuario',
+                icon: Icons.account_circle_outlined,
+                enabled: _isEditing,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _phoneController,
+                label: 'Teléfono',
+                icon: Icons.phone_outlined,
+                enabled: _isEditing,
+                keyboardType: TextInputType.phone,
+              ),
+
+              const SizedBox(height: 32),
+
+              if (_isEditing)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _saveProfile,
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Guardar Cambios'),
+                  ),
+                ),
+
+              const SizedBox(height: 24),
+              if (!_isEditing)
+                OutlinedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -282,33 +280,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
-    bool obscureText = false,
-    bool readOnly = false,
+    bool enabled = true,
     TextInputType? keyboardType,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
-      obscureText: obscureText,
-      readOnly: readOnly,
+      enabled: enabled,
       keyboardType: keyboardType,
-      style: const TextStyle(fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.black),
-        filled: true,
-        fillColor: readOnly ? Colors.grey[200] : Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Colors.black, width: 2),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Colors.black, width: 2),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFE4000F), width: 3),
-        ),
+        prefixIcon: Icon(icon),
+        filled: !enabled,
+        fillColor: !enabled ? Colors.grey[100] : null,
       ),
     );
   }
