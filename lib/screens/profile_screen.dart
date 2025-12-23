@@ -89,8 +89,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (_usernameController.text.isNotEmpty) fields['username'] = _usernameController.text;
       if (_phoneController.text.isNotEmpty) fields['phone'] = _phoneController.text;
       
-      // Note: Email and Cedula are usually not editable or require special handling
-      
       if (_userId != null) {
         await _apiService.updateUser(_userId!, fields, _imageFile);
         
@@ -133,17 +131,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.transparent,
+        body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
       );
     }
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Mi Perfil'),
+        title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           if (!_isEditing)
             IconButton(
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Icons.edit, color: Colors.white),
               onPressed: () {
                 setState(() {
                   _isEditing = true;
@@ -152,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: const Icon(Icons.close, color: Colors.white),
               onPressed: () {
                 setState(() {
                   _isEditing = false;
@@ -173,26 +176,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: _isEditing ? _pickImage : null,
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: _imageFile != null
-                          ? FileImage(_imageFile!)
-                          : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
-                              ? NetworkImage(_currentImageUrl!) as ImageProvider
-                              : null),
-                      child: (_imageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
-                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                          : null,
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.pinkAccent, width: 2),
+                      ),
+                      child: CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.black.withOpacity(0.5),
+                        backgroundImage: _imageFile != null
+                            ? FileImage(_imageFile!)
+                            : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                                ? NetworkImage(_currentImageUrl!) as ImageProvider
+                                : null),
+                        child: (_imageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
+                            ? const Icon(Icons.person, size: 60, color: Colors.white70)
+                            : null,
+                      ),
                     ),
                     if (_isEditing)
                       Positioned(
                         bottom: 0,
                         right: 0,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF6200EE),
+                            color: Colors.pinkAccent,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
@@ -203,14 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 32),
               
-              // Read-only fields
-              _buildTextField(
-                controller: _emailController,
-                label: 'Email',
-                icon: Icons.email_outlined,
-                enabled: false,
-              ),
-              const SizedBox(height: 16),
+              // Email oculto (solo visible para admins en back). Se mantiene en estado pero no se edita aquí.
               _buildTextField(
                 controller: _cedulaController,
                 label: 'Cédula',
@@ -249,13 +251,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _saveProfile,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pinkAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: _isSaving
                         ? const SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text('Guardar Cambios'),
+                        : const Text('Guardar Cambios', style: TextStyle(fontSize: 18)),
                   ),
                 ),
 
@@ -263,10 +273,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!_isEditing)
                 OutlinedButton.icon(
                   onPressed: _logout,
-                  icon: const Icon(Icons.logout, color: Colors.red),
-                  label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
+                  icon: const Icon(Icons.logout, color: Colors.redAccent),
+                  label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
+                    side: const BorderSide(color: Colors.redAccent),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
             ],
@@ -287,11 +301,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       controller: controller,
       enabled: enabled,
       keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
-        filled: !enabled,
-        fillColor: !enabled ? Colors.grey[100] : null,
+        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: enabled ? Colors.pinkAccent : Colors.white38),
+        filled: true,
+        fillColor: Colors.black.withOpacity(0.5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.pinkAccent),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.white10),
+        ),
       ),
     );
   }

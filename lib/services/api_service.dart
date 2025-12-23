@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'https://serverbinks.onrender.com/api';
+  // Simple in-memory caches to speed up navigation without re-fetching
+  static List<dynamic>? _cachedAnimes;
+  static final Map<String, List<dynamic>> _cachedQuestionsByAnime = {};
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -120,10 +123,41 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> getQuestions() async {
+  Future<List<dynamic>> getQuestions({String? animeId}) async {
     final token = await getToken();
+
+    // Return cached questions if available
+    if (animeId != null && _cachedQuestionsByAnime.containsKey(animeId)) {
+      return _cachedQuestionsByAnime[animeId]!;
+    }
+
+    var uri = Uri.parse('$baseUrl/questions');
+    if (animeId != null) {
+      uri = uri.replace(queryParameters: {'animeId': animeId});
+    }
+
     final response = await http.get(
-      Uri.parse('$baseUrl/questions'),
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (animeId != null) {
+        _cachedQuestionsByAnime[animeId] = data;
+      }
+      return data;
+    } else {
+      throw Exception('Error al obtener preguntas');
+    }
+  }
+  Future<List<dynamic>> getRandomQuestions(int count) async {
+    final token = await getToken();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/questions/random?count=$count'),
       headers: {
         'Authorization': 'Bearer $token',
       },
@@ -132,7 +166,26 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Error al obtener preguntas');
+      throw Exception('Error al obtener preguntas random');
+    }
+  }
+  Future<List<dynamic>> getAnimes() async {
+    final token = await getToken();
+
+    if (_cachedAnimes != null) return _cachedAnimes!;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/animes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      _cachedAnimes = jsonDecode(response.body);
+      return _cachedAnimes!;
+    } else {
+      throw Exception('Error al obtener animes');
     }
   }
 

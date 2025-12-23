@@ -101,7 +101,13 @@ class _LoginScreenState extends State<LoginScreen> {
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              color: Colors.black.withOpacity(0.6),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xCC0A0A12), Color(0xCC12122A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
             ),
           ),
           
@@ -132,13 +138,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF16162A), Color(0xFF0F0F1F)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.08)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+                          color: const Color(0xFFFF2E63).withOpacity(0.25),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
                         ),
                       ],
                     ),
@@ -149,14 +160,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Bienvenido',
                           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1A1A1A),
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Ingresa tus credenciales para continuar',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                            color: Colors.white70,
                           ),
                         ),
                         const SizedBox(height: 32),
