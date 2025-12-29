@@ -16,66 +16,154 @@ class _PlayScreenState extends State<PlayScreen> {
   int _score = 0;
   bool _isQuizFinished = false;
   bool _isQuizStarted = false;
+  String? _currentSessionId;
+  Map<String, dynamic>? _gameStats;
+  int _totalPoints = 0;
+  String? _errorMessage;
+  bool _isRetrying = false;
 
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    _loadGameStats();
   }
 
-  Future<void> _loadQuestions() async {
+  Future<void> _loadGameStats() async {
     try {
-      final questions = await _apiService.getRandomQuestions(10);
-      setState(() {
-        _questions = questions;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      final stats = await _apiService.getGameStats();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar preguntas: $e')),
-        );
+        setState(() {
+          _gameStats = stats;
+          _totalPoints = (stats['totalPoints'] ?? 0).toInt();
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
       }
     }
+  }
+
+  Future<void> _startNewGame() async {
+    setState(() {
+      _isLoading = true;
+      _isQuizStarted = false;
+      _isQuizFinished = false;
+      _currentQuestionIndex = 0;
+      _score = 0;
+      _errorMessage = null;
+      _isRetrying = false;
+    });
+
+    try {
+      final session = await _apiService.startGame(questionCount: 10);
+      _currentSessionId = session['id'];
+
+      // For now, get random questions (we'll integrate with session questions later)
+      final questions = await _apiService.getRandomQuestions(10);
+      if (mounted) {
+        setState(() {
+          _questions = questions;
+          _isLoading = false;
+          _isQuizStarted = true;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+        _showErrorDialog('Error al iniciar el juego', _errorMessage!, _retryStartGame);
+      }
+    }
+  }
+
+  void _retryStartGame() {
+    setState(() {
+      _isRetrying = true;
+    });
+    _startNewGame();
   }
 
   Future<void> _answerQuestion(String answer) async {
+    if (_currentSessionId == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final question = _questions[_currentQuestionIndex];
     try {
-      final result = await _apiService.answerQuestion(question['id'], answer);
+      final result = await _apiService.answerGameQuestion(
+        _currentSessionId!,
+        question['id'],
+        answer,
+      );
 
-      final isCorrect = (result['isCorrect'] ?? result['correct']) == true;
-      final correctAnswer = result['correctAnswer']?.toString() ??
-          question['correctAnswer']?.toString() ??
-          '—';
+      final isCorrect = result['isCorrect'] ?? false;
+      final int pointsEarned = (result['pointsEarned'] ?? 0).toInt();
 
-      if (isCorrect) {
-        _score++;
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Correcto!'),
-              backgroundColor: Colors.green,
-              duration: Duration(milliseconds: 600),
+      if (mounted) {
+        setState(() {
+          if (isCorrect) _score++;
+          _totalPoints += pointsEarned;
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isCorrect
+                ? '¡Correcto! +$pointsEarned puntos'
+                : 'Incorrecto. Respuesta correcta: ${result['correctAnswer'] ?? 'N/A'}',
             ),
-          );
-        }
-        _goNextQuestion();
-      } else {
+            backgroundColor: isCorrect ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Move to next question or finish
+      if (_currentQuestionIndex < _questions.length - 1) {
         if (mounted) {
-          _showFailureSheet(correctAnswer);
+          setState(() {
+            _currentQuestionIndex++;
+          });
         }
+      } else {
+        await _finishGame();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al enviar respuesta: $e')),
-        );
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+        _showErrorDialog('Error al enviar respuesta', _errorMessage!, () => _answerQuestion(answer));
       }
     }
+  }
+
+  Future<void> _finishGame() async {
+    if (_currentSessionId != null) {
+      try {
+        await _apiService.endGame(_currentSessionId!);
+      } catch (e) {
+        // Ignore error
+      }
+    }
+
+    setState(() {
+      _isQuizFinished = true;
+    });
+
+    await _loadGameStats(); // Refresh stats
   }
 
   void _goNextQuestion() {
@@ -162,6 +250,50 @@ class _PlayScreenState extends State<PlayScreen> {
     );
   }
 
+  void _showErrorDialog(String title, String message, VoidCallback onRetry) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2F),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFFF2E63), width: 2),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onRetry();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF2E63),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reintentar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showExitDialog() {
     showDialog(
       context: context,
@@ -241,14 +373,28 @@ class _PlayScreenState extends State<PlayScreen> {
           ),
         ),
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2E63)))
-            : _questions.isEmpty
-                ? const Center(child: Text('No hay preguntas disponibles', style: TextStyle(color: Colors.white)))
-                : !_isQuizStarted
-                    ? _buildStartScreen()
-                    : _isQuizFinished
-                        ? _buildResultScreen()
-                        : _buildQuizScreen(),
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFFFF2E63)),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isRetrying ? 'Reintentando...' : 'Cargando...',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              )
+            : _errorMessage != null && !_isQuizStarted
+                ? _buildErrorScreen()
+                : _questions.isEmpty
+                    ? const Center(child: Text('No hay preguntas disponibles', style: TextStyle(color: Colors.white)))
+                    : !_isQuizStarted
+                        ? _buildStartScreen()
+                        : _isQuizFinished
+                            ? _buildResultScreen()
+                            : _buildQuizScreen(),
       ),
     );
   }
@@ -363,46 +509,70 @@ class _PlayScreenState extends State<PlayScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _answerQuestion(answerController.text),
+              onPressed: _isLoading ? null : () => _answerQuestion(answerController.text),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2E63),
+                backgroundColor: _isLoading ? Colors.grey : const Color(0xFFFF2E63),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('Enviar respuesta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Enviar respuesta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ] else
             ...options.map((option) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: InkWell(
+                  onTap: _isLoading ? null : () => _answerQuestion(option),
                   borderRadius: BorderRadius.circular(14),
-                  onTap: () => _answerQuestion(option),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1F1F35), Color(0xFF151527)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: _isLoading
+                          ? const LinearGradient(
+                              colors: [Color(0xFF2A2A3A), Color(0xFF1F1F2F)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : const LinearGradient(
+                              colors: [Color(0xFF1F1F35), Color(0xFF151527)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                       border: Border.all(color: Colors.white.withOpacity(0.14)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.radio_button_unchecked, color: Colors.white70, size: 18),
+                        Icon(
+                          _isLoading ? Icons.hourglass_empty : Icons.radio_button_unchecked,
+                          color: _isLoading ? Colors.white54 : Colors.white70,
+                          size: 18,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             option,
-                            style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: _isLoading ? Colors.white54 : Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+                        if (!_isLoading)
+                          const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
                       ],
                     ),
                   ),
@@ -410,6 +580,94 @@ class _PlayScreenState extends State<PlayScreen> {
               );
             }).toList(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2A1A1F), Color(0xFF1A1215)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: Colors.red.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(0.35),
+              blurRadius: 28,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.red.withOpacity(0.12),
+                border: Border.all(color: Colors.red.withOpacity(0.6)),
+              ),
+              child: const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              '¡Ups! Algo salió mal',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage ?? 'Error desconocido',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white70),
+                    foregroundColor: Colors.white70,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Text('Volver'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _retryStartGame,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF2E63),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Text('Reintentar'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -493,76 +751,157 @@ class _PlayScreenState extends State<PlayScreen> {
           colors: [Color(0xFF0B0B14), Color(0xFF0F0F1F)],
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF2E63), Color(0xFFB026FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF2E63).withOpacity(0.35),
-                    blurRadius: 30,
-                    offset: const Offset(0, 14),
+                child: IntrinsicHeight(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Stats Card
+                      if (_gameStats != null) ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 32),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Tus Estadísticas',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildStatItem('Puntos Totales', _totalPoints.toString(), Icons.stars),
+                                  _buildStatItem('Juegos', (_gameStats!['totalGames'] ?? 0).toString(), Icons.games),
+                                  _buildStatItem('Promedio', '${(_gameStats!['averageScore'] ?? 0).toStringAsFixed(1)}%', Icons.analytics),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const Spacer(),
+
+                      // Play Button Section
+                      Container(
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF2E63), Color(0xFFB026FF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF2E63).withOpacity(0.35),
+                              blurRadius: 30,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_circle_fill,
+                          size: 90,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      const Text(
+                        '¡Prepárate para el quiz!',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${_questions.length} preguntas te esperan',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                        onPressed: _startNewGame,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF2E63),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          elevation: 10,
+                        ),
+                        child: const Text(
+                          '¡Comenzar!',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+
+                      const Spacer(),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.play_circle_fill,
-                size: 90,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              '¡Prepárate para el quiz!',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '${_questions.length} preguntas te esperan',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isQuizStarted = true;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2E63),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
                 ),
-                elevation: 10,
               ),
-              child: const Text(
-                '¡Comenzar!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: const Color(0xFFFF2E63), size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white70,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

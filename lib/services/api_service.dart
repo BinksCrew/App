@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -5,9 +6,61 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'https://serverbinks.onrender.com/api';
+  static const Duration timeout = Duration(seconds: 30);
   // Simple in-memory caches to speed up navigation without re-fetching
   static List<dynamic>? _cachedAnimes;
   static final Map<String, List<dynamic>> _cachedQuestionsByAnime = {};
+
+  // Enhanced error handling
+  Future<T> _handleRequest<T>(
+    Future<http.Response> Function() request,
+    T Function(dynamic) onSuccess,
+    String errorMessage,
+    {int maxRetries = 2}
+  ) async {
+    int attempts = 0;
+    while (attempts <= maxRetries) {
+      try {
+        final response = await request().timeout(timeout);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return onSuccess(jsonDecode(response.body));
+        } else if (response.statusCode == 401) {
+          throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        } else if (response.statusCode >= 500) {
+          if (attempts < maxRetries) {
+            attempts++;
+            await Future.delayed(Duration(seconds: attempts * 2));
+            continue;
+          }
+          throw Exception('Error del servidor. Inténtalo más tarde.');
+        } else {
+          final errorData = jsonDecode(response.body);
+          final message = errorData['message'] ?? errorMessage;
+          throw Exception(message);
+        }
+      } on SocketException {
+        if (attempts < maxRetries) {
+          attempts++;
+          await Future.delayed(Duration(seconds: attempts));
+          continue;
+        }
+        throw Exception('Sin conexión a internet. Verifica tu conexión.');
+      } on TimeoutException {
+        if (attempts < maxRetries) {
+          attempts++;
+          await Future.delayed(Duration(seconds: attempts));
+          continue;
+        }
+        throw Exception('Tiempo de espera agotado. Inténtalo nuevamente.');
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Sesión expirada')) {
+          rethrow;
+        }
+        throw Exception(errorMessage);
+      }
+    }
+    throw Exception(errorMessage);
+  }
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -123,6 +176,20 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getUserProfile() async {
+    final token = await getToken();
+    return _handleRequest(
+      () => http.get(
+        Uri.parse('$baseUrl/users/profile/me'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+      (data) => data as Map<String, dynamic>,
+      'Error al obtener el perfil del usuario.',
+    );
+  }
+
   Future<List<dynamic>> getQuestions({String? animeId}) async {
     final token = await getToken();
 
@@ -204,6 +271,153 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Error al enviar respuesta');
+    }
+  }
+
+  // ===== GAME SYSTEM =====
+  Future<Map<String, dynamic>> startGame({int questionCount = 10}) async {
+    final token = await getToken();
+    return _handleRequest(
+      () => http.post(
+        Uri.parse('$baseUrl/game/start?questions=$questionCount'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+      (data) => data as Map<String, dynamic>,
+      'Error al iniciar el juego. Verifica tu conexión.',
+    );
+  }
+
+  Future<Map<String, dynamic>> answerGameQuestion(String sessionId, String questionId, String answer) async {
+    final token = await getToken();
+    return _handleRequest(
+      () => http.post(
+        Uri.parse('$baseUrl/game/answer?sessionId=$sessionId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'questionId': questionId,
+          'answer': answer,
+        }),
+      ),
+      (data) => data as Map<String, dynamic>,
+      'Error al enviar la respuesta. Inténtalo nuevamente.',
+    );
+  }
+
+  Future<Map<String, dynamic>> endGame(String sessionId) async {
+    final token = await getToken();
+    return _handleRequest(
+      () => http.post(
+        Uri.parse('$baseUrl/game/$sessionId/end'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+      (data) => data as Map<String, dynamic>,
+      'Error al finalizar el juego.',
+    );
+  }
+
+  Future<Map<String, dynamic>> getGameStats() async {
+    final token = await getToken();
+    return _handleRequest(
+      () => http.get(
+        Uri.parse('$baseUrl/game/stats'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ),
+      (data) => data as Map<String, dynamic>,
+      'Error al obtener estadísticas del juego.',
+    );
+  }
+
+  // ===== PRODUCTS SYSTEM =====
+  Future<List<dynamic>> getProducts() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/products'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al obtener productos');
+    }
+  }
+
+  Future<Map<String, dynamic>> getProduct(String id) async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/products/$id'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al obtener producto');
+    }
+  }
+
+  // ===== REDEMPTIONS SYSTEM =====
+  Future<List<dynamic>> getRedemptions() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/redemptions'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al obtener redenciones');
+    }
+  }
+
+  Future<Map<String, dynamic>> createRedemption(String productId) async {
+    final token = await getToken();
+    final response = await http.post(
+      Uri.parse('$baseUrl/redemptions'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'productId': productId}),
+    );
+
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al crear redención');
+    }
+  }
+
+  // ===== LEADERBOARD SYSTEM =====
+  Future<List<dynamic>> getLeaderboard({int limit = 50}) async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/leaderboard?limit=$limit'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al obtener leaderboard');
     }
   }
 }

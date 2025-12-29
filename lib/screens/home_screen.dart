@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'play_screen.dart';
 import 'rewards_screen.dart';
+import 'products_screen.dart';
+import 'redemptions_screen.dart';
+import 'leaderboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -233,44 +236,69 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActionRow(BuildContext context) {
-    return Row(
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.2,
       children: [
-        Expanded(
-          child: _buildActionCard(
-            title: 'Recompensas',
-            subtitle: 'Mira tus logros',
-            icon: Icons.emoji_events,
-            gradient: const [Color(0xFFFF2E63), Color(0xFFB026FF)],
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RewardsScreen()),
-              );
-            },
-          ),
+        _buildActionCard(
+          title: 'Jugar',
+          subtitle: '¡Pon a prueba tus conocimientos!',
+          icon: Icons.play_circle_fill,
+          gradient: const [Color(0xFFFF2E63), Color(0xFFB026FF)],
+          onTap: () {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const PlayScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  final tween = Tween(begin: const Offset(0.0, 0.1), end: Offset.zero).chain(
+                    CurveTween(curve: Curves.easeOutCubic),
+                  );
+                  return SlideTransition(position: animation.drive(tween), child: child);
+                },
+              ),
+            );
+          },
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionCard(
-            title: 'Continuar',
-            subtitle: 'Salta a un quiz',
-            icon: Icons.play_circle_fill,
-            gradient: const [Color(0xFF08D9D6), Color(0xFF11998E)],
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => const PlayScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    final tween = Tween(begin: const Offset(0.0, 0.1), end: Offset.zero).chain(
-                      CurveTween(curve: Curves.easeOutCubic),
-                    );
-                    return SlideTransition(position: animation.drive(tween), child: child);
-                  },
-                ),
-              );
-            },
-          ),
+        _buildActionCard(
+          title: 'Tienda',
+          subtitle: 'Canjea tus puntos por recompensas',
+          icon: Icons.shopping_bag,
+          gradient: const [Color(0xFF08D9D6), Color(0xFF11998E)],
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProductsScreen()),
+            );
+          },
+        ),
+        _buildActionCard(
+          title: 'Mis Redenciones',
+          subtitle: 'Ve tus productos canjeados',
+          icon: Icons.card_giftcard,
+          gradient: const [Color(0xFFFFC107), Color(0xFFFF8F00)],
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const RedemptionsScreen()),
+            );
+          },
+        ),
+        _buildActionCard(
+          title: 'Leaderboard',
+          subtitle: '¿Dónde estás en el ranking?',
+          icon: Icons.leaderboard,
+          gradient: const [Color(0xFF9C27B0), Color(0xFF673AB7)],
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
+            );
+          },
         ),
       ],
     );

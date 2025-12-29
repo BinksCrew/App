@@ -29,6 +29,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSaving = false;
   bool _isEditing = false;
 
+  // Game stats
+  Map<String, dynamic>? _gameStats;
+
   @override
   void initState() {
     super.initState();
@@ -37,8 +40,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final userData = await _apiService.getUserData();
+      // Get fresh data from server
+      final userData = await _apiService.getUserProfile();
+      final gameStats = await _apiService.getGameStats();
+      
       if (userData != null) {
+        // Save updated data locally
+        await _apiService.saveUserData(userData);
+        
         setState(() {
           _userId = userData['id'];
           _fullNameController.text = userData['fullName'] ?? '';
@@ -47,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _emailController.text = userData['email'] ?? '';
           _cedulaController.text = userData['cedula'] ?? '';
           _currentImageUrl = userData['photo_url']; // Assuming API returns photo_url
+          _gameStats = gameStats;
           _isLoading = false;
         });
       } else {
@@ -246,6 +256,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 32),
 
+              // Game Statistics Section
+              if (_gameStats != null && !_isEditing) ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Estadísticas de Juego',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem('Juegos', _gameStats!['totalGames'].toString(), Icons.games),
+                          _buildStatItem('Puntos', _gameStats!['totalPoints'].toString(), Icons.stars),
+                          _buildStatItem('Promedio', '${(_gameStats!['averageScore'] * 100).toStringAsFixed(1)}%', Icons.analytics),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               if (_isEditing)
                 SizedBox(
                   width: double.infinity,
@@ -325,6 +374,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderSide: const BorderSide(color: Colors.white10),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: const Color(0xFFFF2E63), size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white70,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

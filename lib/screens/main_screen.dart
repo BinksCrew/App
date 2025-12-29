@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'rewards_screen.dart';
+import 'play_screen.dart';
+import 'products_screen.dart';
+import 'redemptions_screen.dart';
+import 'leaderboard_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,8 +19,10 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 1; // Start at Home by default
 
   static final List<Widget> _widgetOptions = <Widget>[
-    const RewardsScreen(),
+    const ProductsScreen(),
+    const PlayScreen(),
     const HomeScreen(),
+    const LeaderboardScreen(),
     const ProfileScreen(),
   ];
 
@@ -64,25 +70,37 @@ class _MainScreenState extends State<MainScreen> {
         Scaffold(
           backgroundColor: Colors.transparent,
           body: _widgetOptions.elementAt(_selectedIndex),
-          bottomNavigationBar: NavigationBar(
-            backgroundColor: Colors.black.withOpacity(0.65),
-            indicatorColor: const Color(0xFFFF2E63).withOpacity(0.4),
-            onDestinationSelected: _onItemTapped,
-            selectedIndex: _selectedIndex,
-            destinations: const <Widget>[
-              NavigationDestination(
-                icon: Icon(Icons.emoji_events_outlined, color: Colors.white),
-                selectedIcon: Icon(Icons.emoji_events, color: Colors.white),
-                label: 'Rewards',
+          bottomNavigationBar: BottomNavigationBar(
+            backgroundColor: Colors.black.withOpacity(0.8),
+            selectedItemColor: const Color(0xFFFF2E63),
+            unselectedItemColor: Colors.white70,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_bag_outlined),
+                activeIcon: Icon(Icons.shopping_bag),
+                label: 'Tienda',
               ),
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined, color: Colors.white),
-                selectedIcon: Icon(Icons.home, color: Colors.white),
-                label: 'Home',
+              BottomNavigationBarItem(
+                icon: Icon(Icons.play_circle_outline),
+                activeIcon: Icon(Icons.play_circle),
+                label: 'Jugar',
               ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline, color: Colors.white),
-                selectedIcon: Icon(Icons.person, color: Colors.white),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Inicio',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.leaderboard_outlined),
+                activeIcon: Icon(Icons.leaderboard),
+                label: 'Ranking',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
                 label: 'Perfil',
               ),
             ],

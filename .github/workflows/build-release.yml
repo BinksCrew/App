@@ -1,0 +1,187 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Tipo de release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  version-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+
+    - name: Cache Flutter dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.pub-cache
+        key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-flutter-
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Run tests
+      run: flutter test
+
+    - name: Analyze code
+      run: flutter analyze
+
+    - name: Format code
+      run: flutter format --set-exit-if-changed lib/
+
+    - name: Determine release type
+      id: release_type
+      run: |
+        if [ "${{ github.event.inputs.release_type }}" != "" ]; then
+          echo "type=${{ github.event.inputs.release_type }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "type=patch" >> $GITHUB_OUTPUT
+        else
+          echo "type=patch" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Bump version
+      id: bump_version
+      run: |
+        # Read current version
+        CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '\n')
+
+        # Parse version
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+        # Determine release type
+        RELEASE_TYPE="${{ steps.release_type.outputs.type }}"
+
+        # Increment version
+        case $RELEASE_TYPE in
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          patch)
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+
+        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+        VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+
+        # Update pubspec.yaml
+        sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+
+        # Update build.gradle
+        sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
+        sed -i "s/versionName \"[^\"]*\"/versionName \"$NEW_VERSION\"/" android/app/build.gradle
+
+        # Output for next steps
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+
+        echo "Version bumped from $CURRENT_VERSION to $NEW_VERSION (code: $VERSION_CODE)"
+
+    - name: Build APK
+      run: |
+        flutter build apk --release --split-per-abi
+        ls -la build/app/outputs/flutter-apk/
+
+    - name: Create release archives
+      run: |
+        mkdir -p release-artifacts
+        cp build/app/outputs/flutter-apk/app-*-release.apk release-artifacts/
+        cd release-artifacts
+        for apk in *.apk; do
+          echo "APK: $apk"
+          ls -lh "$apk"
+        done
+
+    - name: Upload APK artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binkscrew-apk-${{ steps.bump_version.outputs.new_version }}
+        path: release-artifacts/*.apk
+        retention-days: 30
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get commit messages since last tag
+        if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+          LAST_TAG=$(git describe --tags --abbrev=0)
+          CHANGES=$(git log --oneline $LAST_TAG..HEAD --pretty=format:"- %s")
+        else
+          CHANGES=$(git log --oneline -10 --pretty=format:"- %s")
+        fi
+
+        if [ -z "$CHANGES" ]; then
+          CHANGES="- Version bump and improvements"
+        fi
+
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
+        echo "## Changes in v${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_OUTPUT
+        echo "$CHANGES" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### Installation" >> $GITHUB_OUTPUT
+        echo "Download the APK file that matches your device architecture and install it." >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.bump_version.outputs.new_version }}
+        name: Release v${{ steps.bump_version.outputs.new_version }}
+        body: ${{ steps.changelog.outputs.changes }}
+        files: release-artifacts/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Commit version changes
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add pubspec.yaml android/app/build.gradle
+        git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}" || echo "No changes to commit"
+        git push

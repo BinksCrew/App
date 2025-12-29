@@ -72,6 +72,36 @@
   ```
   Este script construye el APK de release y lo copia como `binkscrew.apk` en la raíz del proyecto.
 
+### Versionado de la Aplicación
+
+Para evitar conflictos de instalación al actualizar la app, es **crucial** incrementar el número de versión antes de cada build:
+
+#### Método Automático (Recomendado)
+```bash
+# Para corrección de bugs
+./bump_version.sh patch
+
+# Para nuevas funcionalidades
+./bump_version.sh minor
+
+# Para cambios importantes
+./bump_version.sh major
+```
+
+#### Método Manual
+1. Actualiza `pubspec.yaml`:
+   ```yaml
+   version: 0.1.6  # Incrementa la versión
+   ```
+
+2. Actualiza `android/app/build.gradle`:
+   ```gradle
+   versionCode 6    // Incrementa en 1
+   versionName "0.1.6"  // Debe coincidir con pubspec.yaml
+   ```
+
+**Importante**: Si no incrementas el `versionCode`, Android no permitirá instalar la nueva versión sobre la anterior.
+
 ### Construir para iOS (en macOS)
 - Construir para iOS:
   ```bash
