@@ -63,12 +63,6 @@ android {
             signingConfig signingConfigs.release
         }
     }
-
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = "binkscrew.apk"
-        }
-    }
 }
 
 flutter {
