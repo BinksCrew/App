@@ -1,11 +1,11 @@
 {
-    "name": "app",
-    "short_name": "app",
+    "name": "Binkscrew",
+    "short_name": "Binkscrew",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Binks is an engaging mobile app for anime and gaming enthusiasts, featuring interactive quizzes, leaderboards, product redemptions, and more.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

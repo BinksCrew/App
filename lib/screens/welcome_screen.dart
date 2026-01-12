@@ -47,32 +47,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.86,
-            height: MediaQuery.of(context).size.height * 0.64,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: SizedBox(
-                  width: _controller.value.size.width,
-                  height: _controller.value.size.height,
-                  child: VideoPlayer(_controller),
-                ),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.86,
+                child: _controller.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: _controller.value.aspectRatio,
+                        child: VideoPlayer(_controller),
+                      )
+                    : const SizedBox(
+                        height: 240,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
               ),
             ),
           ),

@@ -43,26 +43,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Get fresh data from server
       final userData = await _apiService.getUserProfile();
       final gameStats = await _apiService.getGameStats();
+
+      if (!mounted) return;
       
-      if (userData != null) {
-        // Save updated data locally
-        await _apiService.saveUserData(userData);
-        
-        setState(() {
-          _userId = userData['id'];
-          _fullNameController.text = userData['fullName'] ?? '';
-          _usernameController.text = userData['username'] ?? '';
-          _phoneController.text = userData['phone'] ?? '';
-          _emailController.text = userData['email'] ?? '';
-          _cedulaController.text = userData['cedula'] ?? '';
-          _currentImageUrl = userData['photo_url']; // Assuming API returns photo_url
-          _gameStats = gameStats;
-          _isLoading = false;
-        });
-      } else {
-        // Handle case where no user data is found (should redirect to login)
-        _logout();
-      }
+      // Save updated data locally
+      await _apiService.saveUserData(userData);
+      
+      setState(() {
+        _userId = userData['id'];
+        _fullNameController.text = userData['fullName'] ?? '';
+        _usernameController.text = userData['username'] ?? '';
+        _phoneController.text = userData['phone'] ?? '';
+        _emailController.text = userData['email'] ?? '';
+        _cedulaController.text = userData['cedula'] ?? '';
+        _currentImageUrl = userData['photo_url']; // Assuming API returns photo_url
+        _gameStats = gameStats;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -141,22 +138,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(child: CircularProgressIndicator(color: Colors.pinkAccent)),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: const Text('Mi Perfil'),
         automaticallyImplyLeading: false,
         actions: [
           if (!_isEditing)
             IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white),
+              icon: const Icon(Icons.edit),
               onPressed: () {
                 setState(() {
                   _isEditing = true;
@@ -165,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
+              icon: const Icon(Icons.close),
               onPressed: () {
                 setState(() {
                   _isEditing = false;
@@ -186,35 +179,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: _isEditing ? _pickImage : null,
                 child: Stack(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.pinkAccent, width: 2),
-                      ),
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                        backgroundImage: _imageFile != null
-                            ? FileImage(_imageFile!)
-                            : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
-                                ? NetworkImage(_currentImageUrl!) as ImageProvider
-                                : null),
-                        child: (_imageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
-                            ? const Icon(Icons.person, size: 60, color: Colors.white70)
-                            : null,
-                      ),
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundImage: _imageFile != null
+                          ? FileImage(_imageFile!)
+                          : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                              ? NetworkImage(_currentImageUrl!) as ImageProvider
+                              : null),
+                      child: (_imageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
+                          ? const Icon(Icons.person, size: 60)
+                          : null,
                     ),
                     if (_isEditing)
                       Positioned(
                         bottom: 0,
                         right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.pinkAccent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: FloatingActionButton.small(
+                          onPressed: _pickImage,
+                          child: const Icon(Icons.camera_alt),
                         ),
                       ),
                   ],
@@ -258,28 +240,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // Game Statistics Section
               if (_gameStats != null && !_isEditing) ...[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
-                  ),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Estadísticas de Juego',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text('Estadísticas de Juego', style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -291,6 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -300,21 +268,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _saveProfile,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                     child: _isSaving
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Guardar Cambios', style: TextStyle(fontSize: 18)),
+                        : const Text('Guardar Cambios'),
                   ),
                 ),
 
@@ -322,15 +283,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!_isEditing)
                 OutlinedButton.icon(
                   onPressed: _logout,
-                  icon: const Icon(Icons.logout, color: Colors.redAccent),
-                  label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.redAccent),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Cerrar Sesión'),
                 ),
             ],
           ),
@@ -350,29 +304,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       controller: controller,
       enabled: enabled,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: enabled ? Colors.pinkAccent : Colors.white38),
-        filled: true,
-        fillColor: Colors.black.withOpacity(0.5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white24),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.pinkAccent),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white10),
-        ),
+        prefixIcon: Icon(icon),
       ),
     );
   }
@@ -380,23 +314,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFFFF2E63), size: 24),
+        Icon(icon, size: 24),
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-          ),
+          style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
       ],

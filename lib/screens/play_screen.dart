@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../services/api_service.dart';
 
 class PlayScreen extends StatefulWidget {
-  const PlayScreen({super.key});
+  final String? animeId;
+  final String? animeName;
+  final bool autoStart;
+
+  const PlayScreen({
+    super.key,
+    this.animeId,
+    this.animeName,
+    this.autoStart = false,
+  });
 
   @override
   State<PlayScreen> createState() => _PlayScreenState();
@@ -12,6 +22,7 @@ class _PlayScreenState extends State<PlayScreen> {
   final _apiService = ApiService();
   List<dynamic> _questions = [];
   bool _isLoading = true;
+  bool _isSubmittingAnswer = false;
   int _currentQuestionIndex = 0;
   int _score = 0;
   bool _isQuizFinished = false;
@@ -21,11 +32,28 @@ class _PlayScreenState extends State<PlayScreen> {
   int _totalPoints = 0;
   String? _errorMessage;
   bool _isRetrying = false;
+  final TextEditingController _openAnswerController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadGameStats();
+    unawaited(_loadGameStats());
+
+    if (widget.autoStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _startNewGame();
+      });
+    } else {
+      // Show the start screen quickly if we're not auto-starting.
+      _isLoading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _openAnswerController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadGameStats() async {
@@ -56,14 +84,21 @@ class _PlayScreenState extends State<PlayScreen> {
       _score = 0;
       _errorMessage = null;
       _isRetrying = false;
+      _isSubmittingAnswer = false;
     });
 
     try {
       final session = await _apiService.startGame(questionCount: 10);
       _currentSessionId = session['id'];
 
-      // For now, get random questions (we'll integrate with session questions later)
-      final questions = await _apiService.getRandomQuestions(10);
+      // If coming from an anime card, prefer anime-specific questions (cached by ApiService).
+      var questions = widget.animeId != null
+          ? await _apiService.getQuestions(animeId: widget.animeId)
+          : await _apiService.getRandomQuestions(10);
+
+      if (questions.length > 10) {
+        questions = questions.take(10).toList();
+      }
       if (mounted) {
         setState(() {
           _questions = questions;
@@ -94,7 +129,7 @@ class _PlayScreenState extends State<PlayScreen> {
     if (_currentSessionId == null) return;
 
     setState(() {
-      _isLoading = true;
+      _isSubmittingAnswer = true;
       _errorMessage = null;
     });
 
@@ -113,7 +148,7 @@ class _PlayScreenState extends State<PlayScreen> {
         setState(() {
           if (isCorrect) _score++;
           _totalPoints += pointsEarned;
-          _isLoading = false;
+          _isSubmittingAnswer = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -123,7 +158,6 @@ class _PlayScreenState extends State<PlayScreen> {
                 ? '¡Correcto! +$pointsEarned puntos'
                 : 'Incorrecto. Respuesta correcta: ${result['correctAnswer'] ?? 'N/A'}',
             ),
-            backgroundColor: isCorrect ? Colors.green : Colors.red,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -142,7 +176,7 @@ class _PlayScreenState extends State<PlayScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isSubmittingAnswer = false;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
         _showErrorDialog('Error al enviar respuesta', _errorMessage!, () => _answerQuestion(answer));
@@ -166,126 +200,24 @@ class _PlayScreenState extends State<PlayScreen> {
     await _loadGameStats(); // Refresh stats
   }
 
-  void _goNextQuestion() {
-    if (_currentQuestionIndex < _questions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-      });
-    } else {
-      setState(() {
-        _isQuizFinished = true;
-      });
-    }
-  }
-
-  void _showFailureSheet(String correctAnswer) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF151527),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.sentiment_dissatisfied, color: Colors.orange, size: 48),
-              const SizedBox(height: 12),
-              const Text(
-                '¡Fallaste en este turno!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Respuesta correcta: $correctAnswer',
-                style: const TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFFF2E63)),
-                        foregroundColor: const Color(0xFFFF2E63),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        // Retry same question (do nothing else)
-                      },
-                      child: const Text('Reintentar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).maybePop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF2E63),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Salir'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _showErrorDialog(String title, String message, VoidCallback onRetry) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2F),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFFF2E63), width: 2),
-          ),
-          title: Text(
-            title,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(color: Colors.white70),
-          ),
+          title: Text(title),
+          content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.white70),
-              ),
+              child: const Text('Cancelar'),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 onRetry();
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2E63),
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Reintentar'),
             ),
           ],
@@ -299,36 +231,18 @@ class _PlayScreenState extends State<PlayScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Colors.pinkAccent, width: 2),
-          ),
-          title: const Text(
-            '¿Salir del Quiz?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: const Text(
-            '¿Estás seguro de que quieres salir? Perderás tu progreso actual.',
-            style: TextStyle(color: Colors.white70),
-          ),
+          title: const Text('¿Salir del Quiz?'),
+          content: const Text('¿Estás seguro de que quieres salir? Perderás tu progreso actual.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.white70),
-              ),
+              child: const Text('Cancelar'),
             ),
-            ElevatedButton(
+            FilledButton.tonal(
               onPressed: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop(); // Go back to home
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Salir'),
             ),
           ],
@@ -343,53 +257,46 @@ class _PlayScreenState extends State<PlayScreen> {
       _score = 0;
       _isQuizFinished = false;
       _isQuizStarted = false;
+      _questions = [];
+      _currentSessionId = null;
+      _openAnswerController.clear();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: _isQuizStarted
           ? AppBar(
-              title: const Text('Jugar', style: TextStyle(color: Colors.white)),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
+              title: Text(
+                widget.animeName?.isNotEmpty == true ? 'Jugar • ${widget.animeName}' : 'Jugar',
+                overflow: TextOverflow.ellipsis,
+              ),
               automaticallyImplyLeading: false,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.exit_to_app, color: Colors.white),
+                  icon: const Icon(Icons.exit_to_app),
                   onPressed: _showExitDialog,
                 ),
               ],
             )
           : null,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0D0D1A), Color(0xFF090912)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+      body: SafeArea(
         child: _isLoading
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const CircularProgressIndicator(color: Color(0xFFFF2E63)),
+                    const CircularProgressIndicator(),
                     const SizedBox(height: 16),
-                    Text(
-                      _isRetrying ? 'Reintentando...' : 'Cargando...',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
+                    Text(_isRetrying ? 'Reintentando...' : 'Cargando...'),
                   ],
                 ),
               )
             : _errorMessage != null && !_isQuizStarted
                 ? _buildErrorScreen()
                 : _questions.isEmpty
-                    ? const Center(child: Text('No hay preguntas disponibles', style: TextStyle(color: Colors.white)))
+                    ? const Center(child: Text('No hay preguntas disponibles'))
                     : !_isQuizStarted
                         ? _buildStartScreen()
                         : _isQuizFinished
@@ -409,264 +316,130 @@ class _PlayScreenState extends State<PlayScreen> {
       options.add(correctAnswer);
     }
     final isOpenQuestion = options.isEmpty;
-    final TextEditingController answerController = TextEditingController();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: LinearProgressIndicator(
-              value: (_currentQuestionIndex + 1) / _questions.length,
-              minHeight: 10,
-              backgroundColor: Colors.white.withOpacity(0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF2E63)),
+    final String? animeLabel = question['anime'] == null
+        ? null
+        : (question['anime'] is Map
+            ? (question['anime']['name']?.toString())
+            : question['anime'].toString());
+
+    return Stack(
+      children: [
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            LinearProgressIndicator(value: (_currentQuestionIndex + 1) / _questions.length),
+            const SizedBox(height: 12),
+            Text(
+              'Pregunta ${_currentQuestionIndex + 1} de ${_questions.length}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Pregunta ${_currentQuestionIndex + 1} de ${_questions.length}',
-            style: const TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 0.3),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.4)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF2E63).withOpacity(0.25),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(22.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (question['anime'] != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.12)),
-                      ),
-                      child: Text(
-                        question['anime'] is Map
-                            ? (question['anime']['name'] ?? '')
-                            : question['anime'].toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (animeLabel != null && animeLabel.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            Chip(label: Text(animeLabel)),
+                          ],
                         ),
                       ),
+                    Text(
+                      question['question']?.toString() ?? '',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                  const SizedBox(height: 14),
-                  Text(
-                    question['question'],
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1.3,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (isOpenQuestion) ...[
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: Colors.white.withOpacity(0.04),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: TextField(
-                controller: answerController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Tu respuesta',
-                  labelStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _isLoading ? null : () => _answerQuestion(answerController.text),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isLoading ? Colors.grey : const Color(0xFFFF2E63),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            if (isOpenQuestion) ...[
+              TextField(
+                controller: _openAnswerController,
+                enabled: !_isSubmittingAnswer,
+                decoration: const InputDecoration(
+                  labelText: 'Tu respuesta',
+                  border: OutlineInputBorder(),
                 ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: _isSubmittingAnswer ? null : (v) => _answerQuestion(v),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Text('Enviar respuesta', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ] else
-            ...options.map((option) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: InkWell(
-                  onTap: _isLoading ? null : () => _answerQuestion(option),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: _isLoading
-                          ? const LinearGradient(
-                              colors: [Color(0xFF2A2A3A), Color(0xFF1F1F2F)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : const LinearGradient(
-                              colors: [Color(0xFF1F1F35), Color(0xFF151527)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                      border: Border.all(color: Colors.white.withOpacity(0.14)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _isLoading ? Icons.hourglass_empty : Icons.radio_button_unchecked,
-                          color: _isLoading ? Colors.white54 : Colors.white70,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            option,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: _isLoading ? Colors.white54 : Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (!_isLoading)
-                          const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
-                      ],
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _isSubmittingAnswer
+                    ? null
+                    : () => _answerQuestion(_openAnswerController.text.trim()),
+                child: const Text('Enviar respuesta'),
+              ),
+            ] else ...[
+              for (final option in options)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonal(
+                      onPressed: _isSubmittingAnswer ? null : () => _answerQuestion(option),
+                      child: Text(option, textAlign: TextAlign.center),
                     ),
                   ),
                 ),
-              );
-            }).toList(),
-        ],
-      ),
+            ],
+          ],
+        ),
+        if (_isSubmittingAnswer)
+          const Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: LinearProgressIndicator(minHeight: 3),
+          ),
+      ],
     );
   }
 
   Widget _buildErrorScreen() {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2A1A1F), Color(0xFF1A1215)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(color: Colors.red.withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.red.withOpacity(0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red.withOpacity(0.12),
-                border: Border.all(color: Colors.red.withOpacity(0.6)),
-              ),
-              child: const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              '¡Ups! Algo salió mal',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage ?? 'Error desconocido',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white70),
-                    foregroundColor: Colors.white70,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: const Text('Volver'),
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 12),
+                Text('¡Ups! Algo salió mal', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage ?? 'Error desconocido',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _retryStartGame,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF2E63),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Volver'),
                     ),
-                  ),
-                  child: const Text('Reintentar'),
+                    const SizedBox(width: 12),
+                    FilledButton(onPressed: _retryStartGame, child: const Text('Reintentar')),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -674,206 +447,68 @@ class _PlayScreenState extends State<PlayScreen> {
 
   Widget _buildResultScreen() {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E1E35), Color(0xFF121222)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.emoji_events, size: 48),
+                const SizedBox(height: 12),
+                Text('¡Quiz terminado!', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text('Tu puntuación: $_score / ${_questions.length}'),
+                const SizedBox(height: 16),
+                FilledButton(onPressed: _restartQuiz, child: const Text('Jugar de nuevo')),
+              ],
+            ),
           ),
-          border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF2E63).withOpacity(0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 18),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.amber.withOpacity(0.12),
-                border: Border.all(color: Colors.amber.withOpacity(0.6)),
-              ),
-              child: const Icon(Icons.emoji_events, size: 64, color: Colors.amber),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              '¡Quiz terminado!',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Tu puntuación: $_score / ${_questions.length}',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color(0xFFFF2E63),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _restartQuiz,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2E63),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: const Text('Jugar de nuevo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
         ),
       ),
     );
   }
 
   Widget _buildStartScreen() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0B0B14), Color(0xFF0F0F1F)],
-        ),
-      ),
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: IntrinsicHeight(
+    final averageScore = _gameStats == null ? null : _gameStats!['averageScore'];
+    final averageText = averageScore?.toString();
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Stats Card
-                      if (_gameStats != null) ...[
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 32),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Tus Estadísticas',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildStatItem('Puntos Totales', _totalPoints.toString(), Icons.stars),
-                                  _buildStatItem('Juegos', (_gameStats!['totalGames'] ?? 0).toString(), Icons.games),
-                                  _buildStatItem('Promedio', '${(_gameStats!['averageScore'] ?? 0).toStringAsFixed(1)}%', Icons.analytics),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      const Spacer(),
-
-                      // Play Button Section
-                      Container(
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF2E63), Color(0xFFB026FF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF2E63).withOpacity(0.35),
-                              blurRadius: 30,
-                              offset: const Offset(0, 14),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.play_circle_fill,
-                          size: 90,
-                          color: Colors.white,
-                        ),
+                      Text('Tus estadísticas', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem('Puntos', _totalPoints.toString(), Icons.stars),
+                          _buildStatItem('Juegos', (_gameStats?['totalGames'] ?? 0).toString(), Icons.games),
+                          _buildStatItem('Promedio', averageText ?? '—', Icons.analytics),
+                        ],
                       ),
-                      const SizedBox(height: 28),
-                      const Text(
-                        '¡Prepárate para el quiz!',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '${_questions.length} preguntas te esperan',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-                      ElevatedButton(
-                        onPressed: _startNewGame,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF2E63),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          elevation: 10,
-                        ),
-                        child: const Text(
-                          '¡Comenzar!',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-
-                      const Spacer(),
                     ],
                   ),
                 ),
               ),
-            );
-          },
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _startNewGame,
+                icon: const Icon(Icons.play_arrow),
+                label: Text(widget.animeName?.isNotEmpty == true ? 'Comenzar (${widget.animeName})' : 'Comenzar'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -882,23 +517,16 @@ class _PlayScreenState extends State<PlayScreen> {
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFFFF2E63), size: 24),
+        Icon(icon, size: 24),
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-          ),
+          style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
       ],

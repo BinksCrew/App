@@ -1,7 +1,10 @@
 name: binkscrew
-description: "A new Flutter project."
+description: "Binks is an engaging mobile app for anime and gaming enthusiasts, featuring interactive quizzes, leaderboards, product redemptions, and more. Discover, play, and compete in the ultimate anime experience!"
 publish_to: 'none'
-version: 0.1.6
+version: 0.1.7+1
+homepage: https://github.com/BinksCrew/App
+repository: https://github.com/BinksCrew/App
+issue_tracker: https://github.com/BinksCrew/App/issues
 
 environment:
   sdk: ^3.10.0
@@ -17,6 +20,7 @@ dependencies:
   image_picker: ^1.0.4
   share_plus: ^7.1.0
   shared_preferences: ^2.2.1
+  upgrader: ^10.3.0
 
 dev_dependencies:
   flutter_test:

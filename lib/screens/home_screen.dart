@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'play_screen.dart';
-import 'rewards_screen.dart';
 import 'products_screen.dart';
 import 'redemptions_screen.dart';
 import 'leaderboard_screen.dart';
@@ -50,152 +50,89 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFFF2E63);
+    final accent = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Binkscrew', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: const Text('Binkscrew'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Icons.logout),
             onPressed: () async {
+              final navigator = Navigator.of(context);
               await _apiService.logout();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/');
-              }
+              if (!mounted) return;
+              navigator.pushReplacementNamed('/');
             },
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0E0E1A), Color(0xFF0A0A12)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: accent))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeroCard(accent),
-                    const SizedBox(height: 18),
-                    _buildActionRow(context),
-                    const SizedBox(height: 26),
-                    _buildSectionTitle('Explora animes'),
-                    const SizedBox(height: 12),
-                    _animes.isEmpty
-                        ? Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.04),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'No hay animes disponibles por ahora',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                          )
-                        : GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _animes.length,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 14,
-                              mainAxisSpacing: 14,
-                              childAspectRatio: 0.92,
-                            ),
-                            itemBuilder: (context, index) {
-                              final anime = _animes[index];
-                              return _buildCategoryCard(
-                                context,
-                                anime['name'] ?? 'Anime',
-                                index,
-                                anime['id'],
-                              );
-                            },
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroCard(accent),
+                  const SizedBox(height: 16),
+                  _buildActionRow(context),
+                  const SizedBox(height: 22),
+                  _buildSectionTitle('Explora animes'),
+                  const SizedBox(height: 10),
+                  _animes.isEmpty
+                      ? const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(child: Text('No hay animes disponibles por ahora')),
                           ),
-                  ],
-                ),
+                        )
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _animes.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: 0.92,
+                          ),
+                          itemBuilder: (context, index) {
+                            final anime = _animes[index];
+                            return _buildCategoryCard(
+                              context,
+                              anime['name'] ?? 'Anime',
+                              index,
+                              (anime['id'] ?? '').toString(),
+                            );
+                          },
+                        ),
+                ],
               ),
-      ),
+            ),
     );
   }
 
   Widget _buildHeroCard(Color accent) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF16162A), Color(0xFF0F0F1F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.all(22.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: accent.withOpacity(0.16),
-                    border: Border.all(color: accent.withOpacity(0.6)),
-                  ),
-                  child: const Icon(Icons.flash_on, color: Colors.white, size: 26),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hola, $_userName',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        'Prepárate para el siguiente arco',
-                        style: TextStyle(color: Colors.white.withOpacity(0.7)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.flash_on),
+              title: Text('Hola, $_userName'),
+              subtitle: const Text('Prepárate para el siguiente arco'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
             Row(
               children: [
-                _buildStatPill('${_animes.length}', 'Animes disponibles', accent),
+                _buildStatPill('${_animes.length}', 'Animes disponibles'),
                 const SizedBox(width: 10),
-                _buildStatPill('Reto rápido', 'Elige un anime y juega', const Color(0xFF08D9D6)),
+                _buildStatPill('Reto rápido', 'Elige un anime y juega'),
               ],
             ),
           ],
@@ -204,32 +141,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatPill(String value, String label, Color color) {
+  Widget _buildStatPill(String value, String label) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: Colors.white.withOpacity(0.04),
-          border: Border.all(color: color.withOpacity(0.4)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 12),
-            ),
-          ],
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ),
       ),
     );
@@ -248,7 +172,6 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Jugar',
           subtitle: '¡Pon a prueba tus conocimientos!',
           icon: Icons.play_circle_fill,
-          gradient: const [Color(0xFFFF2E63), Color(0xFFB026FF)],
           onTap: () {
             Navigator.push(
               context,
@@ -268,7 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Tienda',
           subtitle: 'Canjea tus puntos por recompensas',
           icon: Icons.shopping_bag,
-          gradient: const [Color(0xFF08D9D6), Color(0xFF11998E)],
           onTap: () {
             Navigator.push(
               context,
@@ -280,7 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Mis Redenciones',
           subtitle: 'Ve tus productos canjeados',
           icon: Icons.card_giftcard,
-          gradient: const [Color(0xFFFFC107), Color(0xFFFF8F00)],
           onTap: () {
             Navigator.push(
               context,
@@ -292,7 +213,6 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Leaderboard',
           subtitle: '¿Dónde estás en el ranking?',
           icon: Icons.leaderboard,
-          gradient: const [Color(0xFF9C27B0), Color(0xFF673AB7)],
           onTap: () {
             Navigator.push(
               context,
@@ -308,64 +228,33 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required String subtitle,
     required IconData icon,
-    required List<Color> gradient,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.last.withOpacity(0.35),
-              blurRadius: 16,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.18),
-              ),
-              child: Icon(icon, color: Colors.white, size: 26),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(icon, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -374,118 +263,51 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSectionTitle(String title) {
     return Row(
       children: [
-        const Icon(Icons.auto_awesome, color: Color(0xFFFF2E63)),
+        const Icon(Icons.auto_awesome),
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
       ],
     );
   }
 
   Widget _buildCategoryCard(BuildContext context, String title, int index, String animeId) {
-    final gradients = [
-      [const Color(0xFF41295a), const Color(0xFF2F0743)],
-      [const Color(0xFF0f2027), const Color(0xFF203a43), const Color(0xFF2c5364)],
-      [const Color(0xFF141E30), const Color(0xFF243B55)],
-      [const Color(0xFF1D976C), const Color(0xFF2DCB73)],
-      [const Color(0xFF2b5876), const Color(0xFF4e4376)],
-    ];
-    final gradient = gradients[index % gradients.length];
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.last.withOpacity(0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    return Card(
       child: InkWell(
         onTap: () {
+          unawaited(_apiService.getQuestions(animeId: animeId));
           Navigator.push(
             context,
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const PlayScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                final tween = Tween(begin: const Offset(0.08, 0.0), end: Offset.zero).chain(
-                  CurveTween(curve: Curves.easeOutCirc),
-                );
-                return SlideTransition(position: animation.drive(tween), child: child);
-              },
+              pageBuilder: (context, animation, secondaryAnimation) => PlayScreen(
+                animeId: animeId,
+                animeName: title,
+                autoStart: true,
+              ),
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
             ),
           );
         },
-        borderRadius: BorderRadius.circular(18),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -10,
-              right: -10,
-              child: Icon(Icons.blur_on, color: Colors.white.withOpacity(0.08), size: 80),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.play_arrow, color: Colors.white, size: 16),
-                        SizedBox(width: 6),
-                        Text('Quiz', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      Icon(Icons.auto_awesome, size: 16, color: Colors.white.withOpacity(0.85)),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Tap para jugar',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.play_arrow),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const Spacer(),
+              Text('Tap para jugar', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ),
       ),
     );

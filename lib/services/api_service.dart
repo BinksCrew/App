@@ -10,6 +10,7 @@ class ApiService {
   // Simple in-memory caches to speed up navigation without re-fetching
   static List<dynamic>? _cachedAnimes;
   static final Map<String, List<dynamic>> _cachedQuestionsByAnime = {};
+  static Map<String, dynamic>? _cachedUserData;
 
   // Enhanced error handling
   Future<T> _handleRequest<T>(
@@ -75,13 +76,16 @@ class ApiService {
   Future<void> saveUserData(Map<String, dynamic> user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_data', jsonEncode(user));
+    _cachedUserData = user;
   }
 
   Future<Map<String, dynamic>?> getUserData() async {
+    if (_cachedUserData != null) return _cachedUserData;
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString('user_data');
     if (userData != null) {
-      return jsonDecode(userData);
+      _cachedUserData = jsonDecode(userData);
+      return _cachedUserData;
     }
     return null;
   }
@@ -90,6 +94,9 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('user_data');
+    _cachedAnimes = null;
+    _cachedQuestionsByAnime.clear();
+    _cachedUserData = null;
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -118,30 +125,57 @@ class ApiService {
     String? phone,
     File? file,
   }) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/auth/register'));
-    
+    // Server docs:
+    // - POST /api/auth/register expects application/json and returns { ..., token }
+    // - POST /api/users accepts multipart/form-data (useful if uploading photo)
+
+    if (file == null) {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'cedula': cedula,
+              'email': email,
+              'password': password,
+              if (fullName != null) 'fullName': fullName,
+              if (username != null) 'username': username,
+              if (phone != null) 'phone': phone,
+            }),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 201) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final token = data['token'];
+        if (token is String && token.isNotEmpty) {
+          await setToken(token);
+        }
+        await saveUserData(data);
+        return data;
+      }
+
+      throw Exception(jsonDecode(response.body)['message'] ?? 'Error al registrarse');
+    }
+
+    // Photo upload flow: create user via /users then login to obtain token.
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users'));
     request.fields['cedula'] = cedula;
     request.fields['email'] = email;
     request.fields['password'] = password;
     if (fullName != null) request.fields['fullName'] = fullName;
     if (username != null) request.fields['username'] = username;
     if (phone != null) request.fields['phone'] = phone;
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-    if (file != null) {
-      request.files.add(await http.MultipartFile.fromPath('file', file.path));
-    }
-
-    final streamedResponse = await request.send();
+    final streamedResponse = await request.send().timeout(timeout);
     final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      await setToken(data['token']);
-      await saveUserData(data);
-      return data;
-    } else {
+    if (response.statusCode != 201) {
       throw Exception(jsonDecode(response.body)['message'] ?? 'Error al registrarse');
     }
+
+    // Now authenticate to get token.
+    return login(email, password);
   }
 
   Future<Map<String, dynamic>> updateUser(String id, Map<String, String> fields, File? file) async {
@@ -370,7 +404,25 @@ class ApiService {
   }
 
   // ===== REDEMPTIONS SYSTEM =====
+  /// User redemption history (server docs: GET /api/redemptions/history).
   Future<List<dynamic>> getRedemptions() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/redemptions/history'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error al obtener redenciones');
+    }
+  }
+
+  /// Admin-only: all redemptions (server docs: GET /api/redemptions).
+  Future<List<dynamic>> getAllRedemptionsAdmin() async {
     final token = await getToken();
     final response = await http.get(
       Uri.parse('$baseUrl/redemptions'),
@@ -386,7 +438,11 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createRedemption(String productId) async {
+  Future<Map<String, dynamic>> createRedemption(
+    String productId, {
+    int quantity = 1,
+    String? notes,
+  }) async {
     final token = await getToken();
     final response = await http.post(
       Uri.parse('$baseUrl/redemptions'),
@@ -394,7 +450,11 @@ class ApiService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({'productId': productId}),
+      body: jsonEncode({
+        'productId': productId,
+        'quantity': quantity,
+        if (notes != null) 'notes': notes,
+      }),
     );
 
     if (response.statusCode == 201) {

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'main_screen.dart';
@@ -59,131 +58,98 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Crear Cuenta', style: TextStyle(color: Colors.white)),
+        title: const Text('Crear cuenta'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: Colors.transparent,
       ),
-      body: Stack(
-        children: [
-          // Background
-          Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/hero.webp'),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          // Blur and Overlay
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              color: Colors.black.withOpacity(0.6),
-            ),
-          ),
-          
-          // Content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Regístrate', style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Crea tu cuenta para empezar a jugar y canjear recompensas',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                      const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _cedulaController,
+                      decoration: const InputDecoration(
+                        labelText: 'Cédula *',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                    ),
+                      const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email *',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+                    ),
+                      const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña *',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                      obscureText: true,
+                      validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                    ),
+                      const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _fullNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre Completo',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                    ),
+                      const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre de Usuario',
+                        prefixIcon: Icon(Icons.account_circle_outlined),
+                      ),
+                    ),
+                      const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _register,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Crear cuenta'),
+                      ),
                     ),
                   ],
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Text(
-                        'Registro',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1A1A1A),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      TextFormField(
-                        controller: _cedulaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Cédula *',
-                          prefixIcon: Icon(Icons.badge_outlined),
-                        ),
-                        validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email *',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Contraseña *',
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                        obscureText: true,
-                        validator: (value) => value!.length < 6 ? 'Mínimo 6 caracteres' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _fullNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre Completo',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre de Usuario',
-                          prefixIcon: Icon(Icons.account_circle_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _register,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Text('REGISTRARSE'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

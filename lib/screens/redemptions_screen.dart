@@ -38,21 +38,6 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      case 'delivered':
-        return Colors.blue;
-      default:
-        return Colors.grey;
-    }
-  }
-
   String _getStatusText(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -71,66 +56,25 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Mis Redenciones', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: const Text('Mis Redenciones'),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0C0C16), Color(0xFF0F0F1F)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2E63)))
-              : _redemptions.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.card_giftcard,
-                            color: Colors.white38,
-                            size: 64,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No tienes redenciones aún',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 18,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '¡Juega para ganar puntos y canjear recompensas!',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 14,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadRedemptions,
-                      color: const Color(0xFFFF2E63),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _redemptions.length,
-                        itemBuilder: (context, index) {
-                          final redemption = _redemptions[index];
-                          return _buildRedemptionCard(redemption);
-                        },
-                      ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _redemptions.isEmpty
+                ? const Center(child: Text('No tienes redenciones aún'))
+                : RefreshIndicator(
+                    onRefresh: _loadRedemptions,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _redemptions.length,
+                      itemBuilder: (context, index) {
+                        final redemption = _redemptions[index];
+                        return _buildRedemptionCard(redemption);
+                      },
                     ),
-        ),
+                  ),
       ),
     );
   }
@@ -140,130 +84,41 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
     final status = redemption['status'] ?? 'pending';
     final createdAt = DateTime.parse(redemption['createdAt'] ?? DateTime.now().toIso8601String());
 
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2F), Color(0xFF121223)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      child: ListTile(
+        leading: const Icon(Icons.card_giftcard),
+        title: Text(product['name'] ?? 'Producto'),
+        subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            if ((product['description'] ?? '').toString().isNotEmpty)
+              Text(
+                product['description'] ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF2E63).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.card_giftcard,
-                    color: Color(0xFFFF2E63),
-                    size: 24,
-                  ),
+                Chip(
+                  label: Text(_getStatusText(status)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product['name'] ?? 'Producto',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        product['description'] ?? '',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                Chip(
+                  avatar: const Icon(Icons.stars, size: 18),
+                  label: Text('${product['pointsCost'] ?? 0}'),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Status and Date
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _getStatusColor(status).withOpacity(0.3),
-                    ),
-                  ),
-                  child: Text(
-                    _getStatusText(status),
-                    style: TextStyle(
-                      color: _getStatusColor(status),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.stars,
-                      color: Color(0xFFFF2E63),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product['pointsCost'] ?? 0}',
-                      style: const TextStyle(
-                        color: Color(0xFFFF2E63),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // Date
-            Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today,
-                  color: Colors.white54,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${createdAt.day}/${createdAt.month}/${createdAt.year}',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                Chip(
+                  avatar: const Icon(Icons.calendar_today, size: 18),
+                  label: Text('${createdAt.day}/${createdAt.month}/${createdAt.year}'),
                 ),
               ],
             ),
           ],
         ),
+        isThreeLine: true,
       ),
     );
   }
