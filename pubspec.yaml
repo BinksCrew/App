@@ -1,7 +1,7 @@
 name: binkscrew
 description: "Binks is an engaging mobile app for anime and gaming enthusiasts, featuring interactive quizzes, leaderboards, product redemptions, and more. Discover, play, and compete in the ultimate anime experience!"
 publish_to: 'none'
-version: 0.1.7+1
+version: 0.1.8+1
 homepage: https://github.com/BinksCrew/App
 repository: https://github.com/BinksCrew/App
 issue_tracker: https://github.com/BinksCrew/App/issues
