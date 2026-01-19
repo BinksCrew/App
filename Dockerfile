@@ -7,8 +7,11 @@ WORKDIR /app
 # Copiar el código fuente de la app Flutter
 COPY . .
 
+# Diagnosticar Flutter
+RUN flutter doctor
+
 # Instalar dependencias de Flutter
-RUN flutter pub get
+RUN flutter pub get || (flutter pub cache repair && flutter pub get)
 
 # Build para web
 RUN flutter build web
