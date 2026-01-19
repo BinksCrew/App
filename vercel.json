@@ -1,10 +1,5 @@
 {
-  "buildCommand": "docker build -t flutter-app . && docker run --rm flutter-app",
+  "buildCommand": "docker build -t flutter-app . && docker create --name temp flutter-app && docker cp temp:/app/build ./build && docker rm temp",
   "outputDirectory": "build",
-  "framework": null,
-  "functions": {
-    "src/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "framework": null
 }
