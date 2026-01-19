@@ -117,6 +117,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 28),
               Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.black, width: 2),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(22),
                   child: Column(
@@ -131,18 +135,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 22),
                       TextField(
                         controller: _emailController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Correo electrónico',
                           prefixIcon: Icon(Icons.email_outlined),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 1),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 1),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: _passwordController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Contraseña',
                           prefixIcon: Icon(Icons.lock_outline),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 1),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 1),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.black, width: 2),
+                          ),
                         ),
                         obscureText: true,
                       ),

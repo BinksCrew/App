@@ -86,6 +86,10 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.black, width: 2),
+      ),
       child: ListTile(
         leading: const Icon(Icons.card_giftcard),
         title: Text(product['name'] ?? 'Producto'),

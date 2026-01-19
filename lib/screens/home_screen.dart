@@ -130,7 +130,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildSectionTitle('Explora animes'),
                   const SizedBox(height: 10),
                   _animes.isEmpty
-                      ? const Card(
+                      ? Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.black, width: 2),
+                          ),
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Center(child: Text('No hay animes disponibles por ahora')),
@@ -161,13 +165,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeroCard(Color accent) {
     return Card(
       elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.black, width: 2),
+      ),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+              Theme.of(context).colorScheme.primaryContainer.withOpacity(0.9),
+              Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.7),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -233,7 +240,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Expanded(
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.black, width: 2),
+        ),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -345,6 +355,10 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
   }) {
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.black, width: 2),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -390,13 +404,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCategoryCard(BuildContext context, String title, int index, String animeId) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.black, width: 2),
+      ),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+              Theme.of(context).colorScheme.primaryContainer.withOpacity(0.8),
+              Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.6),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

@@ -241,6 +241,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Game Statistics Section
               if (_gameStats != null && !_isEditing) ...[
                 Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.black, width: 2),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                   child: Column(

@@ -53,7 +53,16 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'Binkscrew',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.light,
+          primary: Colors.deepPurple,
+          secondary: Colors.pinkAccent,
+          tertiary: Colors.cyan,
+        ),
+      ),
       themeMode: ThemeMode.light,
       scaffoldMessengerKey: scaffoldMessengerKey,
       home: UpgradeAlert(
