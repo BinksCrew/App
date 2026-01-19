@@ -444,6 +444,7 @@ class ApiService {
     String? notes,
   }) async {
     final token = await getToken();
+    if (token == null) throw Exception('Usuario no autenticado');
     final response = await http.post(
       Uri.parse('$baseUrl/redemptions'),
       headers: {
@@ -460,7 +461,8 @@ class ApiService {
     if (response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Error al crear redención');
+      final errorBody = jsonDecode(response.body);
+      throw Exception(errorBody['message'] ?? 'Error al crear redención');
     }
   }
 
@@ -478,6 +480,26 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Error al obtener leaderboard');
+    }
+  }
+
+  Future<void> sendTelegramMessage(String message) async {
+    const String botToken = '8535347363:AAER_kUfKkB5YEHPfjm1dqhEV_1MDNCj1Nk';
+    const String chatId = '-1003539294457';
+    final url = 'https://api.telegram.org/bot$botToken/sendMessage';
+
+    try {
+      await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'chat_id': chatId,
+          'text': message,
+          'parse_mode': 'Markdown',
+        }),
+      );
+    } catch (e) {
+      // Ignore errors in error reporting
     }
   }
 }

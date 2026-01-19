@@ -125,6 +125,34 @@ class _PlayScreenState extends State<PlayScreen> {
     _startNewGame();
   }
 
+  Future<void> _confirmStartGame() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Comenzar el quiz?'),
+        content: Text(
+          widget.animeName?.isNotEmpty == true
+              ? '¿Estás listo para comenzar el quiz de ${widget.animeName}? Tendrás 10 preguntas.'
+              : '¿Estás listo para comenzar el quiz? Tendrás 10 preguntas aleatorias.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Comenzar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _startNewGame();
+    }
+  }
+
   Future<void> _answerQuestion(String answer) async {
     if (_currentSessionId == null) return;
 
@@ -134,6 +162,13 @@ class _PlayScreenState extends State<PlayScreen> {
     });
 
     final question = _questions[_currentQuestionIndex];
+    final options = question['options'] != null
+      ? List<String>.from(question['options'].map((o) => o.toString()))
+      : <String>[];
+    final correctAnswer = question['correctAnswer']?.toString();
+    if (correctAnswer != null && correctAnswer.isNotEmpty && !options.contains(correctAnswer)) {
+      options.add(correctAnswer);
+    }
     try {
       final result = await _apiService.answerGameQuestion(
         _currentSessionId!,
@@ -337,27 +372,55 @@ class _PlayScreenState extends State<PlayScreen> {
             ),
             const SizedBox(height: 16),
             Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (animeLabel != null && animeLabel.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            Chip(label: Text(animeLabel)),
-                          ],
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.surface,
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (animeLabel != null && animeLabel.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Chip(
+                            label: Text(animeLabel),
+                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          ),
                         ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.question_mark,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              question['question']?.toString() ?? '',
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              softWrap: true,
+                            ),
+                          ),
+                        ],
                       ),
-                    Text(
-                      question['question']?.toString() ?? '',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -381,14 +444,57 @@ class _PlayScreenState extends State<PlayScreen> {
                 child: const Text('Enviar respuesta'),
               ),
             ] else ...[
-              for (final option in options)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonal(
-                      onPressed: _isSubmittingAnswer ? null : () => _answerQuestion(option),
-                      child: Text(option, textAlign: TextAlign.center),
+              for (int i = 0; i < options.length; i++)
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: 1.0),
+                  duration: Duration(milliseconds: 300 + i * 100),
+                  curve: Curves.easeOut,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)),
+                      child: child,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Card(
+                      elevation: 2,
+                      child: InkWell(
+                        onTap: _isSubmittingAnswer ? null : () => _answerQuestion(options[i]),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    String.fromCharCode(65 + i),
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                options[i],
+                                style: Theme.of(context).textTheme.bodyLarge,
+                                softWrap: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -446,23 +552,93 @@ class _PlayScreenState extends State<PlayScreen> {
   }
 
   Widget _buildResultScreen() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.emoji_events, size: 48),
-                const SizedBox(height: 12),
-                Text('¡Quiz terminado!', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text('Tu puntuación: $_score / ${_questions.length}'),
-                const SizedBox(height: 16),
-                FilledButton(onPressed: _restartQuiz, child: const Text('Jugar de nuevo')),
-              ],
+    final percentage = (_score / _questions.length * 100).round();
+    final isPerfect = _score == _questions.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+            Theme.of(context).colorScheme.surface,
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Card(
+              elevation: 12,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.surface,
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPerfect ? Icons.emoji_events : Icons.check_circle,
+                        size: 80,
+                        color: isPerfect
+                            ? Colors.amber
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        isPerfect ? '¡Perfecto!' : '¡Quiz terminado!',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Respondiste correctamente $_score de ${_questions.length} preguntas',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$percentage% de acierto',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      FilledButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('¡Gracias por jugar!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          Navigator.of(context).pop(); // Go back to home
+                        },
+                        icon: const Icon(Icons.home),
+                        label: const Text('Volver al inicio'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -474,40 +650,99 @@ class _PlayScreenState extends State<PlayScreen> {
     final averageScore = _gameStats == null ? null : _gameStats!['averageScore'];
     final averageText = averageScore?.toString();
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Text('Tus estadísticas', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem('Puntos', _totalPoints.toString(), Icons.stars),
-                          _buildStatItem('Juegos', (_gameStats?['totalGames'] ?? 0).toString(), Icons.games),
-                          _buildStatItem('Promedio', averageText ?? '—', Icons.analytics),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
+            Theme.of(context).colorScheme.surface,
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.surface,
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                         ],
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.quiz,
+                            size: 64,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '¡Prepárate para el Quiz!',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.animeName?.isNotEmpty == true
+                                ? 'Demuestra tu conocimiento sobre ${widget.animeName}'
+                                : 'Responde preguntas aleatorias y gana puntos',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Tus estadísticas',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildStatItem('Puntos', _totalPoints.toString(), Icons.stars),
+                              _buildStatItem('Juegos', (_gameStats?['totalGames'] ?? 0).toString(), Icons.games),
+                              _buildStatItem('Promedio', averageText ?? '—', Icons.analytics),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _startNewGame,
-                icon: const Icon(Icons.play_arrow),
-                label: Text(widget.animeName?.isNotEmpty == true ? 'Comenzar (${widget.animeName})' : 'Comenzar'),
-              ),
-            ],
+                const SizedBox(height: 32),
+                FilledButton.icon(
+                  onPressed: _confirmStartGame,
+                  icon: const Icon(Icons.play_arrow, size: 28),
+                  label: Text(
+                    widget.animeName?.isNotEmpty == true ? 'Comenzar Quiz' : 'Comenzar Quiz',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -522,12 +757,14 @@ class _PlayScreenState extends State<PlayScreen> {
         Text(
           value,
           style: Theme.of(context).textTheme.titleMedium,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 4),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

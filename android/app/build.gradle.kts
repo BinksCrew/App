@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.app"
+    namespace = "com.binkscrew"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

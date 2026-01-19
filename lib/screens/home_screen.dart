@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Usuario';
   bool _isLoading = true;
   List<dynamic> _animes = [];
+  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           if (userData != null) {
             _userName = userData['fullName'] ?? userData['username'] ?? 'Usuario';
+            _userData = userData;
           }
           _animes = animes;
           _isLoading = false;
@@ -48,6 +50,47 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showStatsModal() {
+    if (_userData == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Estadísticas del usuario'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Nombre'),
+              subtitle: Text(_userName),
+            ),
+            ListTile(
+              leading: const Icon(Icons.stars),
+              title: const Text('Puntos'),
+              subtitle: Text('${_userData!['points'] ?? 0}'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.quiz),
+              title: const Text('Preguntas respondidas'),
+              subtitle: Text('${_userData!['questionsAnswered'] ?? 0}'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.check_circle),
+              title: const Text('Respuestas correctas'),
+              subtitle: Text('${_userData!['correctAnswers'] ?? 0}'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
@@ -57,6 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Binkscrew'),
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: _showStatsModal,
+            tooltip: 'Estadísticas',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -88,25 +136,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Center(child: Text('No hay animes disponibles por ahora')),
                           ),
                         )
-                      : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _animes.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 14,
-                            childAspectRatio: 0.92,
-                          ),
-                          itemBuilder: (context, index) {
-                            final anime = _animes[index];
-                            return _buildCategoryCard(
-                              context,
-                              anime['name'] ?? 'Anime',
-                              index,
-                              (anime['id'] ?? '').toString(),
+                      : Wrap(
+                          spacing: 14,
+                          runSpacing: 14,
+                          children: _animes.map((anime) {
+                            final index = _animes.indexOf(anime);
+                            return SizedBox(
+                              width: (MediaQuery.of(context).size.width - 16 * 2 - 14) / 2,
+                              child: _buildCategoryCard(
+                                context,
+                                anime['name'] ?? 'Anime',
+                                index,
+                                (anime['id'] ?? '').toString(),
+                              ),
                             );
-                          },
+                          }).toList(),
                         ),
                 ],
               ),
@@ -116,26 +160,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeroCard(Color accent) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.flash_on),
-              title: Text('Hola, $_userName'),
-              subtitle: const Text('Prepárate para el siguiente arco'),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildStatPill('${_animes.length}', 'Animes disponibles'),
-                const SizedBox(width: 10),
-                _buildStatPill('Reto rápido', 'Elige un anime y juega'),
-              ],
-            ),
-          ],
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.surfaceContainerHighest,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.flash_on,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hola, $_userName',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Prepárate para el siguiente arco',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildStatPill('${_animes.length}', 'Animes disponibles'),
+                  const SizedBox(width: 12),
+                  _buildStatPill('Reto rápido', 'Elige un anime y juega'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -144,15 +232,41 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildStatPill(String value, String label) {
     return Expanded(
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
-            ],
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -275,38 +389,90 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoryCard(BuildContext context, String title, int index, String animeId) {
     return Card(
-      child: InkWell(
-        onTap: () {
-          unawaited(_apiService.getQuestions(animeId: animeId));
-          Navigator.push(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => PlayScreen(
-                animeId: animeId,
-                animeName: title,
-                autoStart: true,
-              ),
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.play_arrow),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              Text('Tap para jugar', style: Theme.of(context).textTheme.bodySmall),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.surfaceContainerHighest,
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: InkWell(
+          onTap: () {
+            unawaited(_apiService.getQuestions(animeId: animeId));
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => PlayScreen(
+                  animeId: animeId,
+                  animeName: title,
+                  autoStart: true,
+                ),
+                transitionDuration: const Duration(milliseconds: 300),
+                reverseTransitionDuration: const Duration(milliseconds: 200),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.play_arrow,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.quiz,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Jugar Quiz',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

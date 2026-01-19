@@ -1,4 +1,4 @@
-package com.example.app
+package com.binkscrew
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

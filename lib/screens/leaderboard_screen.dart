@@ -106,27 +106,110 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: rank <= 3 ? const Icon(Icons.emoji_events) : Text('$rank'),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: isCurrentUser
+              ? LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primaryContainer,
+                    Theme.of(context).colorScheme.surface,
+                  ],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(12),
         ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                '$username',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: rank <= 3
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
             ),
-            if (isCurrentUser) const SizedBox(width: 8),
-            if (isCurrentUser) const Chip(label: Text('Tú')),
-          ],
-        ),
-        subtitle: (fullName != null && fullName != username) ? Text('$fullName') : null,
-        trailing: Chip(
-          avatar: const Icon(Icons.stars, size: 18),
-          label: Text('$points'),
+            child: Center(
+              child: rank <= 3
+                  ? Icon(
+                      Icons.emoji_events,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      size: 20,
+                    )
+                  : Text(
+                      '$rank',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$username',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (isCurrentUser) const SizedBox(width: 8),
+              if (isCurrentUser)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Tú',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          subtitle: (fullName != null && fullName != username)
+              ? Text(
+                  '$fullName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                )
+              : null,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.stars,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$points',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

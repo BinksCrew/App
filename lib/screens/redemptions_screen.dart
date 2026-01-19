@@ -108,7 +108,7 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
                 ),
                 Chip(
                   avatar: const Icon(Icons.stars, size: 18),
-                  label: Text('${product['pointsCost'] ?? 0}'),
+                  label: Text('${num.tryParse(product['price']?.toString() ?? '0') ?? 0}'),
                 ),
                 Chip(
                   avatar: const Icon(Icons.calendar_today, size: 18),
