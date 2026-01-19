@@ -1,10 +1,10 @@
-# Dockerfile para desplegar Flutter app en Vercel
-FROM cirrusci/flutter:latest
+# Dockerfile para desplegar Flutter app en Render
+FROM cirrusci/flutter:latest AS build
 
 # Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiar el código fuente de la app Flutter (ahora el contexto es app/)
+# Copiar el código fuente de la app Flutter
 COPY . .
 
 # Instalar dependencias de Flutter
@@ -13,11 +13,17 @@ RUN flutter pub get
 # Build para web
 RUN flutter build web
 
-# Mover los archivos de build a la raíz para que Vercel los sirva
-RUN mv build/web /app/build
+# Etapa de producción con Nginx
+FROM nginx:alpine
 
-# Exponer el puerto (Vercel lo maneja)
-EXPOSE 3000
+# Copiar los archivos de build a Nginx
+COPY --from=build /app/build/web /usr/share/nginx/html
 
-# Comando por defecto (Vercel usará los archivos estáticos)
-CMD ["echo", "Build completado"]
+# Copiar configuración de Nginx (opcional, para SPA)
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Exponer el puerto 80
+EXPOSE 80
+
+# Comando por defecto
+CMD ["nginx", "-g", "daemon off;"]

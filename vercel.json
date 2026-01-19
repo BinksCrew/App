@@ -1,5 +1,0 @@
-{
-  "buildCommand": "docker build -t flutter-app . && docker create --name temp flutter-app && docker cp temp:/app/build ./build && docker rm temp",
-  "outputDirectory": "build",
-  "framework": null
-}
